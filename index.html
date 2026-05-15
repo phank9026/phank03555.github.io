@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubble Sort Visualizer - Bar Chart</title>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --bg: #f8f9fa;
+            --border: #dadce0;
+            --highlight-code: #fff4ac;
+            --compare-color: #fbbc05;
+            --swap-color: #ea4335;
+            --done-color: #34a853;
+            --bar-default: #4285f4;
+        }
+
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; }
+        h2 { text-align: center; color: #202124; margin-bottom: 20px; }
+
+        /* Bố cục 3 cột */
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            height: 65vh;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .panel {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 12px;
+            background: #f1f3f4;
+            border-bottom: 1px solid var(--border);
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* Cột 1: Biểu đồ cột */
+        .simulation-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end; /* Cột mọc từ dưới lên */
+            padding-bottom: 40px;
+            gap: 20px;
+        }
+        .chart-container {
+            display: flex;
+            align-items: flex-end;
+            gap: 15px;
+            height: 250px;
+            padding: 10px;
+        }
+        .bar {
+            width: 50px;
+            background-color: var(--bar-default);
+            border-radius: 6px 6px 0 0;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            padding-top: 10px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        /* Nhãn chỉ số dưới cột */
+        .bar::after {
+            content: attr(data-index);
+            position: absolute;
+            bottom: -30px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        /* Màu trạng thái cột */
+        .bar-comparing { background-color: var(--compare-color) !important; transform: scaleX(1.1); }
+        .bar-swapping { background-color: var(--swap-color) !important; animation: shake 0.3s infinite; }
+        .bar-sorted { background-color: var(--done-color) !important; }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(3px); }
+            100% { transform: translateX(0); }
+        }
+
+        /* Cột 2: Code Debugger */
+        .code-content { padding: 15px; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.7; }
+        .code-line { padding: 2px 8px; border-radius: 4px; color: #333; white-space: nowrap;}
+        .current-line { background-color: var(--highlight-code); border-left: 4px solid #fbbc05; }
+        .indent-1 { margin-left: 20px; }
+        .indent-2 { margin-left: 40px; }
+        .indent-3 { margin-left: 60px; }
+
+        /* Cột 3: Lịch sử */
+        .history-content { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column-reverse; background: #fafafa; }
+        .log-item { padding: 6px; border-bottom: 1px solid #eee; font-size: 13px; border-left: 3px solid transparent; }
+        .log-compare { border-left-color: var(--compare-color); background: #fffdf0; }
+        .log-swap { border-left-color: var(--swap-color); background: #fff5f5; font-weight: bold; }
+        .log-info { border-left-color: var(--primary); }
+
+        /* Điều khiển */
+        .controls {
+            max-width: 1400px; margin: 20px auto;
+            display: flex; justify-content: center; align-items: center; gap: 20px;
+            background: white; padding: 15px; border-radius: 12px; border: 1px solid var(--border);
+        }
+        button {
+            padding: 10px 20px; font-size: 15px; cursor: pointer; border: none; border-radius: 6px; color: white; font-weight: 500;
+        }
+        .btn-step { background-color: var(--primary); }
+        .btn-auto { background-color: var(--done-color); }
+        .btn-stop { background-color: var(--swap-color); }
+        .btn-reset { background-color: #5f6368; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .speed-ctrl { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <h2>Mô phỏng Bubble Sort (Biểu đồ cột)</h2>
+
+    <div class="main-layout">
+        <!-- Cột 1: Biểu đồ -->
+        <div class="panel">
+            <div class="panel-header">BIỂU ĐỒ MẢNG</div>
+            <div class="simulation-content">
+                <div class="chart-container" id="chart">
+                    <!-- Cột sẽ được tạo bằng JS -->
+                </div>
+                <div id="status-text" style="color: #666; font-style: italic; font-size: 14px;">Nhấn Tạo mảng để bắt đầu</div>
+            </div>
+        </div>
+
+        <!-- Cột 2: Code Debugger -->
+        <div class="panel">
+            <div class="panel-header">CODE ĐANG CHẠY</div>
+            <div class="code-content">
+                <div class="code-line" id="line-1">do {</div>
+                <div class="code-line indent-1" id="line-2">swapped = false;</div>
+                <div class="code-line indent-1" id="line-3">for (let j = 0; j < n - 1; j++) {</div>
+                <div class="code-line indent-2" id="line-4">if (arr[j] > arr[j+1]) {</div>
+                <div class="code-line indent-3" id="line-5">swap(arr[j], arr[j+1]);</div>
+                <div class="code-line indent-3" id="line-6">swapped = true;</div>
+                <div class="code-line indent-2" id="line-7">}</div>
+                <div class="code-line indent-1" id="line-8">}</div>
+                <div class="code-line" id="line-9">} while (swapped);</div>
+            </div>
+        </div>
+
+        <!-- Cột 3: Lịch sử -->
+        <div class="panel">
+            <div class="panel-header">LỊCH SỬ LỆNH</div>
+            <div class="history-content" id="history"></div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-reset" onclick="initArray()">Tạo mảng mới</button>
+        <button class="btn-step" id="btn-step" onclick="handleStep()">Bước tiếp theo</button>
+        <button class="btn-auto" id="btn-auto" onclick="toggleAuto()">Chạy tự động</button>
+        
+        <div class="speed-ctrl">
+            Tốc độ: 
+            <input type="range" id="speed-range" min="100" max="2000" value="1000" step="100" style="direction: rtl;">
+            <span>Nhanh</span>
+        </div>
+    </div>
+
+    <script>
+        let arr = [];
+        let i = 0, j = 0;
+        let stepState = 'START_INNER'; 
+        let swappedInPass = false;
+        let isAuto = false;
+        let autoTimer = null;
+        let sortedCount = 0;
+
+        const chartContainer = document.getElementById('chart');
+        const history = document.getElementById('history');
+        const statusText = document.getElementById('status-text');
+        const btnAuto = document.getElementById('btn-auto');
+        const btnStep = document.getElementById('btn-step');
+        const speedRange = document.getElementById('speed-range');
+
+        function addLog(msg, type = '') {
+            const div = document.createElement('div');
+            div.className = `log-item ${type}`;
+            div.innerText = `> ${msg}`;
+            history.appendChild(div);
+            history.scrollTop = history.scrollHeight;
+        }
+
+        function highlightLine(lineId) {
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('current-line'));
+            if(lineId) document.getElementById(`line-${lineId}`).classList.add('current-line');
+        }
+
+        function createBars() {
+            chartContainer.innerHTML = '';
+            arr.forEach((val, idx) => {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.id = `bar-${idx}`;
+                bar.style.height = `${val * 2}px`; // Scale chiều cao
+                bar.innerText = val;
+                bar.setAttribute('data-index', idx);
+                chartContainer.appendChild(bar);
+            });
+        }
+
+        function updateBars(active = [], swapping = [], sortedIndices = []) {
+            arr.forEach((val, idx) => {
+                const bar = document.getElementById(`bar-${idx}`);
+                bar.style.height = `${val * 2}px`;
+                bar.innerText = val;
+                bar.className = 'bar';
+                if (active.includes(idx)) bar.classList.add('bar-comparing');
+                if (swapping.includes(idx)) bar.classList.add('bar-swapping');
+                if (sortedIndices.includes(idx)) bar.classList.add('bar-sorted');
+            });
+        }
+
+        function initArray() {
+            stopAuto();
+            arr = Array.from({length: 5}, () => Math.floor(Math.random() * 80 + 20));
+            i = 0; j = 0; sortedCount = 0;
+            swappedInPass = false;
+            stepState = 'START_INNER';
+            btnStep.disabled = false;
+            btnAuto.disabled = false;
+            history.innerHTML = '';
+            addLog("Mảng mới: " + arr.join(", "), "log-info");
+            highlightLine(null);
+            createBars();
+            statusText.innerText = "Đã tạo mảng 5 phần tử.";
+        }
+
+        function toggleAuto() {
+            if (isAuto) stopAuto();
+            else startAuto();
+        }
+
+        function startAuto() {
+            isAuto = true;
+            btnAuto.innerText = "Dừng lại";
+            btnAuto.className = 'btn-stop';
+            btnStep.disabled = true;
+            runAutoStep();
+        }
+
+        function stopAuto() {
+            isAuto = false;
+            btnAuto.innerText = "Chạy tự động";
+            btnAuto.className = 'btn-auto';
+            btnStep.disabled = false;
+            clearTimeout(autoTimer);
+        }
+
+        function runAutoStep() {
+            if (!isAuto) return;
+            handleStep();
+            let delay = 2100 - speedRange.value; 
+            autoTimer = setTimeout(runAutoStep, delay);
+        }
+
+        function handleStep() {
+            const sortedIndices = Array.from({length: sortedCount}, (_, k) => arr.length - 1 - k);
+
+            if (stepState === 'START_INNER') {
+                highlightLine(3);
+                statusText.innerText = `Vòng lặp: j = ${j}`;
+                stepState = 'COMPARE';
+            } 
+            else if (stepState === 'COMPARE') {
+                highlightLine(4);
+                updateBars([j, j+1], [], sortedIndices);
+                addLog(`So sánh cột ${j} và cột ${j+1}`, "log-compare");
+                
+                if (arr[j] > arr[j+1]) {
+                    stepState = 'SWAP';
+                    statusText.innerText = `${arr[j]} > ${arr[j+1]} → Đổi chỗ`;
+                } else {
+                    stepState = 'NEXT_J';
+                    statusText.innerText = `${arr[j]} ≤ ${arr[j+1]} → Giữ nguyên`;
+                }
+            }
+            else if (stepState === 'SWAP') {
+                highlightLine(5);
+                updateBars([], [j, j+1], sortedIndices);
+                addLog(`Đổi chỗ ${arr[j]} ↔ ${arr[j+1]}`, "log-swap");
+                
+                let temp = arr[j];
+                arr[j] = arr[j+1];
+                arr[j+1] = temp;
+                
+                swappedInPass = true;
+                setTimeout(() => updateBars([], [j, j+1], sortedIndices), 100);
+                stepState = 'NEXT_J';
+            }
+            else if (stepState === 'NEXT_J') {
+                j++;
+                if (j < arr.length - 1 - i) {
+                    stepState = 'START_INNER';
+                    if (!isAuto) handleStep(); 
+                } else {
+                    highlightLine(9);
+                    sortedCount++;
+                    addLog(`Số ${arr[arr.length-1-i]} đã 'nổi' lên vị trí cuối.`, "log-info");
+                    stepState = 'CHECK_LOOP';
+                }
+            }
+            else if (stepState === 'CHECK_LOOP') {
+                if (swappedInPass) {
+                    i++;
+                    j = 0;
+                    swappedInPass = false;
+                    stepState = 'START_INNER';
+                    statusText.innerText = "Bắt đầu lượt quét mới...";
+                } else {
+                    highlightLine(null);
+                    statusText.innerText = "HOÀN THÀNH!";
+                    addLog("Tất cả đã được sắp xếp!", "log-info");
+                    updateBars([], [], [0,1,2,3,4]);
+                    stopAuto();
+                    btnStep.disabled = true;
+                    btnAuto.disabled = true;
+                }
+            }
+        }
+
+        initArray();
+    </script>
+</body>
+</html>
